@@ -354,7 +354,7 @@ class LinePrintInterface(object):
 
 class SnackInterface(object):
     def __init__(self, margin, title, message=None, vendor_text=None, args=None):
-        self.debug_mode = args and args.debug
+        self.debug_mode = args is not None and args.debug
 
         self.screen = SnackScreen()
 
