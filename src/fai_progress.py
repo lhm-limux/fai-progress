@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -Es
 # coding=utf-8
 
 # Copyright (C) 2017 Max Harmathy <max.harmathy@web.de>
@@ -451,7 +451,7 @@ class SignalProgress(Thread):
                     break
 
 
-if __name__ == '__main__':
+def command_line_interface():
     bindtextdomain('fai-progress')
     textdomain('fai-progress')
 
@@ -495,3 +495,6 @@ if __name__ == '__main__':
         print_exc()
 
     exit(exit_code)
+
+if __name__ == '__main__':
+    command_line_interface()
