@@ -178,7 +178,7 @@ class FaiTask(object):
     def __init__(self, description, target_progress, progress_softupdate=None, expected_recurring_steps=0):
         """
         A FAI run is composed of sequential phases called tasks. Some parsers only are active in the
-        context of a certain task. 
+        context of a certain task.
         :param description: user readable description of the task
         :param target_progress: the progress of installation in percent when this task is *finished*
         :param progress_softupdate: analogous to progress for softupdate;
