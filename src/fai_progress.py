@@ -17,18 +17,19 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 
-from argparse import ArgumentParser
-from time import sleep
-from sys import exit, stderr
-from snack import Scale, Form, Textbox, SnackScreen, Grid, Label, colorsets
-from base64 import b64decode, binascii
-from traceback import print_exc
-from threading import Thread
-from queue import Queue
-from gettext import gettext as _
-from gettext import bindtextdomain, textdomain
 import os
 import re
+from argparse import ArgumentParser
+from base64 import b64decode, binascii
+from gettext import bindtextdomain, textdomain
+from gettext import gettext as _
+from queue import Queue
+from sys import exit, stderr
+from threading import Thread
+from time import sleep
+from traceback import print_exc
+
+from snack import Scale, Form, Textbox, SnackScreen, Grid, Label, colorsets
 
 
 class FaiProgress(object):
