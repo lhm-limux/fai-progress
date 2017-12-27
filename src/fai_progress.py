@@ -236,9 +236,14 @@ class BasicLineParser(object):
         :param message_template:str message template for a message to display
         :param regex:str regular expression for a line of interest
         :param call_back:FaiProgress propagate matches to this fai progress object
+        :raises KeyError: if field names in template string do not have corresponding groups in regex
         """
         self.message_template = message_template
         self.pattern = re.compile(regex)
+
+        # make sure fields in template match groups in regex
+        self.message_template.format_map(self.pattern.groupindex)
+
         self.call_back = call_back
         self.match = None
         self.hits = 0
