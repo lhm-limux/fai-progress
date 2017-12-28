@@ -169,7 +169,6 @@ class FaiProgress():
     def lines(self):
         with open(self.input_file) as handle:
             while self.active:
-                self.active = os.path.exists(self.input_file)
                 line = handle.readline()
                 if not line:
                     sleep(self.input_polling_interval)
