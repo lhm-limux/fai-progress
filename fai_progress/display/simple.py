@@ -1,4 +1,3 @@
-#!/usr/bin/python3 -Es
 # coding=utf-8
 
 # Copyright (C) 2017 Max Harmathy <max.harmathy@web.de>
@@ -16,9 +15,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+from sys import stderr
 
-from fai_progress.main import command_line_interface
 
-if __name__ == '__main__':
-    command_line_interface()
+class LinePrintInterface(object):
+    def update_task(self, percent, task, description):
+        self.update(percent, "{} ({})".format(description, task))
+
+    def update(self, percent, text=None):
+        print("[{:5.1f}%] {}".format(percent, text or ""))
+
+    def debug(self, message):
+        print("[DEBUG] {}".format(message), file=stderr)
+
+    def cleanup(self):
+        pass
 

@@ -23,7 +23,6 @@ setup(
     version="0.1",
     description="Display progress of a FAI run",
     license="GPL2+",
-    package_dir={'':'src'},
-    py_modules=["fai_progress"],
+    packages=["fai_progress"],
     scripts=["bin/fai-progress"],
 )

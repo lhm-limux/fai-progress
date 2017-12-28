@@ -1,4 +1,3 @@
-#!/usr/bin/python3 -Es
 # coding=utf-8
 
 # Copyright (C) 2017 Max Harmathy <max.harmathy@web.de>
@@ -18,21 +17,17 @@
 
 
 import os
-import re
-from argparse import ArgumentParser
-from base64 import b64decode, binascii
-from gettext import bindtextdomain, textdomain
 from gettext import gettext as _
 from queue import Queue
-from sys import exit, stderr
 from threading import Thread
 from time import sleep
-from traceback import print_exc
 
-from snack import Scale, Form, Textbox, SnackScreen, Grid, Label, colorsets
+from fai_progress.parser import BasicLineParser, FaiTaskParser, ShellParser, BootstrapPackageVersionParser, \
+    BootstrapPackageParser, InstallSummaryParser, PackageReceiveParser, PackageInstallParser, HangupParser, \
+    LDAP2FaiErrorParser
 
 
-class FaiProgress(object):
+class FaiProgress():
     """
     Represent the progress of FAI run.
     The progress is calculated from the fai.log generated during a FAI run.
@@ -185,7 +180,7 @@ class FaiProgress(object):
                 yield line
 
 
-class FaiTask(object):
+class FaiTask():
     def __init__(self, description, target_progress, progress_softupdate=None, expected_recurring_steps=0):
         """
         A FAI run is composed of sequential phases called tasks. Some parsers only are active in the
@@ -226,220 +221,6 @@ class FaiTask(object):
         return self.target_progress
 
 
-class BasicLineParser(object):
-    """
-    A basic parser for any line of interest in the log of a FAI run.
-    This is also the base class for all more specific parsers.
-
-    The basic idea is to match a regular expression against a line and to react on the result.
-    Therefore the process method calls on a match the _on_match method with the named
-    capturing groups as arguments.
-
-    The default implementation of the _on_match method inserts the named capuring groups into
-    a message_tamplates and updates the message via the call_back object.
-
-    Derived classes can overwrite the _on_match method to achieve a different behaviour.
-    """
-    def __init__(self, call_back, message_template, regex):
-        """
-        The message template can contain named braces. The regex has to contain named capturing groups
-        with the same names.
-        :param message_template:str message template for a message to display
-        :param regex:str regular expression for a line of interest
-        :param call_back:FaiProgress propagate matches to this fai progress object
-        :raises KeyError: if field names in template string do not have corresponding groups in regex
-        """
-        self.message_template = message_template
-        self.pattern = re.compile(regex)
-
-        # make sure fields in template match groups in regex
-        self.message_template.format_map(self.pattern.groupindex)
-
-        self.call_back = call_back
-        self.match = None
-        self.hits = 0
-
-    def process(self, line):
-        self.match = self.pattern.match(line)
-        if self.match:
-            self.hits += 1
-            self._on_match(**self.match.groupdict())
-
-    def _on_match(self, **values):
-        message = self.message_template.format_map(values)
-        self.call_back.update_message(message)
-
-
-class FaiTaskParser(BasicLineParser):
-    def __init__(self, call_back, name, message_template):
-        regex = "^((Skip|Call)ing task_|(Calling|Source) hook: )(?P<name>{})".format(name)
-        super(FaiTaskParser, self).__init__(call_back, message_template, regex)
-
-    def _on_match(self, **values):
-        self.call_back.next_task(**values)
-
-
-class ShellParser(BasicLineParser):
-    def __init__(self, call_back, message_template):
-        regex = "^Executing +shell: (?P<class>[^/]+)/(?P<script>[^/]+)"
-        super(ShellParser, self).__init__(call_back, message_template, regex)
-
-
-class BootstrapPackageVersionParser(BasicLineParser):
-    def __init__(self, call_back, action):
-        message_template = _(action) + " {package} {version}"
-        regex = "^I: " + action + " (?P<package>.+) (?P<version>.+)$"
-        super(BootstrapPackageVersionParser, self).__init__(call_back, message_template, regex)
-
-
-class BootstrapPackageParser(BasicLineParser):
-    def __init__(self, call_back, action):
-        message_template = _(action) + " {package}"
-        regex = "^I: " + action + " (?P<package>.+)...$"
-        super(BootstrapPackageParser, self).__init__(call_back, message_template, regex)
-
-
-class InstallSummaryParser(BasicLineParser):
-    def __init__(self, call_back):
-        message = _("Gathering information for package lists")
-        regex = "(?P<upgrades>[0-9]+)(?: packages)? upgraded, (?P<installs>[0-9]+) newly installed, (?P<removes>[0-9]+) to remove"
-        super(InstallSummaryParser, self).__init__(call_back, message, regex)
-
-    def _on_match(self, **values):
-        self.call_back.update_package_count(**values)
-
-
-class PackageReceiveParser(BasicLineParser):
-    def __init__(self, call_back):
-        message_template = _("Retrieving") + " {package} {version} ..."
-        regex = "^Get:\s?(?P<number>[0-9]+) [^ ]+ [^ ]+ [^ ]+ (?P<package>[^ ]+) [^ ]+ (?P<version>[^ ]+) [^ ]+"
-        super(PackageReceiveParser, self).__init__(call_back, message_template, regex)
-
-
-class PackageInstallParser(BasicLineParser):
-    def __init__(self, call_back, action):
-        # PackageInstallParser.instances = PackageInstallParser.instances + 1
-        message_template = _(action) + " {package} ..."
-        regex = "^" + action + " (?P<package>[^ ]+) .* ..."
-        super(PackageInstallParser, self).__init__(call_back, message_template, regex)
-
-
-class FaiActionParser(BasicLineParser):
-    def __init__(self, call_back):
-        regex = "^FAI_ACTION: (?P<action>[^ ]+)"
-        super(FaiActionParser, self).__init__(call_back, "", regex)
-
-    def _on_match(self, **values):
-        self.call_back.update_action(**values)
-
-
-class HangupParser(BasicLineParser):
-    def __init__(self, call_back):
-        regex = "^fai-progress: hangup$"
-        super(HangupParser, self).__init__(call_back, "", regex)
-
-    def _on_match(self, **values):
-        self.call_back.active = False
-
-
-class LDAP2FaiErrorParser(BasicLineParser):
-    def __init__(self, call_back):
-        message_template = "ldap2fai-error: {}"
-        regex = "^ldap2fai-error:(.*)$"
-        super(LDAP2FaiErrorParser, self).__init__(call_back, message_template, regex)
-
-    def _on_match(self, **values):
-        try:
-            self.call_back.handle_error(self.message_template.format(b64decode(self.match.group(1))))
-        except binascii.Error:
-            self.call_back.handle_error(_("ldap2fai-error occurred, however the cause could not be decoded!"))
-
-
-class LinePrintInterface(object):
-    def update_task(self, percent, task, description):
-        self.update(percent, "{} ({})".format(description, task))
-
-    def update(self, percent, text=None):
-        print("[{:5.1f}%] {}".format(percent, text or ""))
-
-    def debug(self, message):
-        print("[DEBUG] {}".format(message), file=stderr)
-
-    def cleanup(self):
-        pass
-
-
-class SnackInterface(object):
-    def __init__(self, margin, title, message=None, vendor_text=None, args=None):
-        self.debug_mode = args is not None and args.debug
-
-        self.screen = SnackScreen()
-
-        # set usual colors
-        for i in colorsets["ROOT"], colorsets["ROOTTEXT"], colorsets["HELPLINE"], colorsets["EMPTYSCALE"]:
-            self.screen.setColor(i, "white", "blue") if not self.debug_mode else \
-                self.screen.setColor(i, "brightgreen", "black")
-
-        # remove silly default help text
-        self.screen.popHelpLine()
-
-        # write static messages
-        self.screen.drawRootText((self.screen.width - len(message)) // 2, 4, message)
-        self.screen.drawRootText(-len(vendor_text) - 2, -2, vendor_text)
-
-        if self.debug_mode:
-            # write some static debug information
-            self.screen.drawRootText(1, 1, _("DEBUG MODE"))
-            self.screen.drawRootText(2, 2, "screen {}×{}".format(self.screen.width, self.screen.height))
-            self.screen.drawRootText(2, 3, "file {}".format(args.input))
-
-        self.window_width = self.screen.width - margin * 2
-
-        # assemble our progress bar
-        self.scale = Scale(self.window_width, 100)
-        self.spacer = Label("")
-        self.taskbox = Textbox(self.window_width - 2, 1, "")
-        self.messagebox = Textbox(self.window_width - 8, 1, " . . . ")
-
-        self.grid = Grid(1, 4)
-        self.grid.setField(self.scale, 0, 0)
-        self.grid.setField(self.spacer, 0, 1)
-        self.grid.setField(self.taskbox, 0, 2)
-        self.grid.setField(self.messagebox, 0, 3)
-        self.grid.place(1, 1)
-
-        self.screen.gridWrappedWindow(self.grid, title)
-        self.form = Form()
-        self.form.add(self.scale)
-        self.form.add(self.taskbox)
-        self.form.add(self.messagebox)
-        self.form.draw()
-        self.screen.refresh()
-
-    def update_task(self, percent, task, description):
-        self.taskbox.setText(description)
-        self.update(percent, "")
-
-    def update(self, percent, text=None):
-        progress = int(percent)
-        self.scale.set(progress)
-        self.form.draw()
-        self.screen.refresh()
-        if text is not None:
-            self.messagebox.setText(text)
-            self.form.draw()
-            self.screen.refresh()
-
-    def debug(self, message):
-        self.screen.popHelpLine()
-        self.screen.pushHelpLine("[DEBUG] {}".format(message))
-        self.screen.refresh()
-
-    def cleanup(self):
-        self.screen.popWindow()
-        self.screen.finish()
-
-
 class SignalProgress(Thread):
     """
     Asynchronously write the current progress to a path.
@@ -468,50 +249,3 @@ class SignalProgress(Thread):
                     break
 
 
-def command_line_interface():
-    bindtextdomain('fai-progress')
-    textdomain('fai-progress')
-
-    arg_parser = ArgumentParser(prog="fai-progress", description=_("Display progress of a FAI run"))
-
-    arg_parser.add_argument("input", help=_("data source FAI log"))
-    arg_parser.add_argument("-f", "--frontend", choices=["lineprint", "snack"], help=_("choose frontend"))
-    arg_parser.add_argument("-d", "--debug", action="store_true", default=False, help="turn debugging mode on")
-    arg_parser.add_argument("-m", "--message", default=_("Do not power off or unplug your machine!"),
-                            help=_("this message will be displayed during fai run"))
-    arg_parser.add_argument("-l", "--vendor", default="", help=_("vendor to display"))
-    arg_parser.add_argument("-a", "--action", default="Install", help=_("action to display (install or update)"))
-    arg_parser.add_argument("-i", "--input-polling-interval", default=0.05, type=float, help=_("wait this amount of time in seconds before read line retry"))
-    arg_parser.add_argument("-s", "--signal-file", help=_("signal current progress to this path"))
-
-    args = arg_parser.parse_args()
-
-    if args.frontend == "lineprint":
-        display = LinePrintInterface()
-    else:  # if args.frontend == "snack":
-        display = SnackInterface(margin=3,
-                                 title=_(args.action),
-                                 message=args.message,
-                                 vendor_text=args.vendor,
-                                 args=args)
-
-    fai_progress = FaiProgress(args.input, display, args.input_polling_interval,
-                               signal_file=args.signal_file, debug=args.debug)
-
-    exit_code = 0
-    try:
-        fai_progress.run()
-    except FileNotFoundError as e:
-        exit_code = 1
-        display.cleanup()
-        print(e.strerror, e.filename, file=stderr)
-    except Exception as e:
-        exit_code = 2
-        display.cleanup()
-        print(_("Error in fai-progress"), file=stderr)
-        print_exc()
-
-    exit(exit_code)
-
-if __name__ == '__main__':
-    command_line_interface()

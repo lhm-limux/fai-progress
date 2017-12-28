@@ -1,4 +1,3 @@
-#!/usr/bin/python3 -Es
 # coding=utf-8
 
 # Copyright (C) 2017 Max Harmathy <max.harmathy@web.de>
@@ -15,10 +14,3 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
-from fai_progress.main import command_line_interface
-
-if __name__ == '__main__':
-    command_line_interface()
-
