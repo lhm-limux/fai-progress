@@ -167,14 +167,15 @@ class FaiProgress():
                 return
 
     def lines(self):
-        with open(self.input_file) as handle:
-            while self.active:
-                line = handle.readline()
-                if not line:
-                    sleep(self.input_polling_interval)
-                    continue
-                line = line.rstrip()
-                yield line
+        while self.active:
+            line = self.input_file.readline()
+            if not line:
+                sleep(self.input_polling_interval)
+                continue
+            line = line.rstrip()
+            # if self.debug:
+            #    self.display.debug(line)
+            yield line
 
 
 class FaiTask():

@@ -53,12 +53,12 @@ def command_line_interface():
                                  vendor_text=args.vendor,
                                  args=args)
 
-    fai_progress = FaiProgress(args.input, display, args.input_polling_interval,
-                               signal_file=args.signal_file, debug=args.debug)
-
     exit_code = 0
     try:
-        fai_progress.run()
+        with open(args.input, 'r') as handle:
+            fai_progress = FaiProgress(handle, display, args.input_polling_interval,
+                               signal_file=args.signal_file, debug=args.debug)
+            fai_progress.run()
     except FileNotFoundError as e:
         exit_code = 1
         display.cleanup()
