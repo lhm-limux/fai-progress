@@ -174,8 +174,6 @@ class FaiProgress():
                     sleep(self.input_polling_interval)
                     continue
                 line = line.rstrip()
-                # if self.debug:
-                #    self.display.debug(line)
                 yield line
 
 
