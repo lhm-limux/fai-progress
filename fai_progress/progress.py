@@ -38,7 +38,6 @@ class FaiProgress():
         self.current_progress_base = 0
         self.current_progress_ceiling = 0
         self.current_task = FaiTask(_("Initializing FAI"), 1, 0)
-        self.current_progress_slowdown_barrier = 0
         self.action = None
         self.signal = SignalProgress(signal_file)
         self.debug_mode = debug
@@ -111,15 +110,7 @@ class FaiProgress():
             self.display.debug(message)
 
     def update_message(self, message):
-        if self.current_progress < self.current_progress_slowdown_barrier or self.debug_mode:
-            self.current_progress += self.progress_step_length()
-        else:
-            # make sure that the progress stays in defined progress range
-            range = self.current_progress_ceiling - self.current_progress_slowdown_barrier
-            if range != 0:
-                subprogress = (self.current_progress - self.current_progress_slowdown_barrier) / range
-                panic_factor = subprogress / (subprogress + 1)
-                self.current_progress += self.progress_step_length() * panic_factor
+        self.current_progress += self.progress_step_length()
         self.display.update(self.current_progress, message)
         self.signal.signal_progress(self.current_progress)
 
@@ -131,8 +122,6 @@ class FaiProgress():
         self.current_task = self.tasks[name]
         self.current_progress_base = self.current_progress
         self.current_progress_ceiling = self.current_task.get_target_progress(self.action)
-        self.current_progress_slowdown_barrier = self.current_progress + \
-                                                 (self.current_progress_ceiling - self.current_progress) * 0.9
         self.display.update_task(self.current_progress, name, self.current_task.description)
 
     def progress_step_length(self):
