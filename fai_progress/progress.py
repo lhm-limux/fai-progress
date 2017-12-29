@@ -27,12 +27,54 @@ from fai_progress.parser import BasicLineParser, FaiTaskParser, ShellParser, Boo
     LDAP2FaiErrorParser
 
 
+class FaiTask():
+    def __init__(self, description, target_progress, progress_softupdate=None, expected_recurring_steps=0):
+        """
+        A FAI run is composed of sequential phases called tasks. Some parsers only are active in the
+        context of a certain task.
+        :param description: user readable description of the task
+        :param target_progress: the progress of installation in percent when this task is *finished*
+        :param progress_softupdate: analogous to progress for softupdate;
+                                    leave empty if the same value applies for both
+        """
+        self.description = description
+        self.target_progress = target_progress
+        self.progress_softupdate = progress_softupdate or target_progress
+        self.parsers = []
+        self._recurring_step_count = 0
+        self._expected_recurring_steps = expected_recurring_steps
+        self._expected_non_recurring_steps = 1
+        self.expected_steps = 1
+
+    def _update_expected_steps(self):
+        expected_recurring_steps = self._recurring_step_count * self._expected_recurring_steps
+        self.expected_steps = expected_recurring_steps + self._expected_non_recurring_steps
+
+    def add_parser(self, parser, recurring_step_parser=False, expected_hits=0):
+        self.parsers.append(parser)
+        if recurring_step_parser:
+            self._recurring_step_count += 1
+        else:
+            self._expected_non_recurring_steps += expected_hits
+        self._update_expected_steps()
+
+    def update_recurrent_steps(self, count):
+        self._expected_recurring_steps = count
+        self._update_expected_steps()
+
+    def get_target_progress(self, action=None):
+        if action and action == "softupdate":
+            return self.progress_softupdate
+        return self.target_progress
+
+
 class FaiProgress():
     """
     Represent the progress of FAI run.
     The progress is calculated from the fai.log generated during a FAI run.
     This file is read on the fly and processed by some parsers.
     """
+
     def __init__(self, input_file, display, input_polling_interval, signal_file=None, debug=False):
         self.current_progress = 0
         self.current_progress_base = 0
@@ -167,51 +209,11 @@ class FaiProgress():
             yield line
 
 
-class FaiTask():
-    def __init__(self, description, target_progress, progress_softupdate=None, expected_recurring_steps=0):
-        """
-        A FAI run is composed of sequential phases called tasks. Some parsers only are active in the
-        context of a certain task.
-        :param description: user readable description of the task
-        :param target_progress: the progress of installation in percent when this task is *finished*
-        :param progress_softupdate: analogous to progress for softupdate;
-                                    leave empty if the same value applies for both
-        """
-        self.description = description
-        self.target_progress = target_progress
-        self.progress_softupdate = progress_softupdate or target_progress
-        self.parsers = []
-        self._recurring_step_count = 0
-        self._expected_recurring_steps = expected_recurring_steps
-        self._expected_non_recurring_steps = 1
-        self.expected_steps = 1
-
-    def _update_expected_steps(self):
-        expected_recurring_steps = self._recurring_step_count * self._expected_recurring_steps
-        self.expected_steps = expected_recurring_steps + self._expected_non_recurring_steps
-
-    def add_parser(self, parser, recurring_step_parser=False, expected_hits=0):
-        self.parsers.append(parser)
-        if recurring_step_parser:
-            self._recurring_step_count += 1
-        else:
-            self._expected_non_recurring_steps += expected_hits
-        self._update_expected_steps()
-
-    def update_recurrent_steps(self, count):
-        self._expected_recurring_steps = count
-        self._update_expected_steps()
-
-    def get_target_progress(self, action=None):
-        if action and action == "softupdate":
-            return self.progress_softupdate
-        return self.target_progress
-
-
 class SignalProgress(Thread):
     """
     Asynchronously write the current progress to a path.
     """
+
     def __init__(self, path):
         self.message_queue = Queue()
         self.path = path
