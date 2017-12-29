@@ -33,7 +33,7 @@ class FaiProgress():
     The progress is calculated from the fai.log generated during a FAI run.
     This file is read on the fly and processed by some parsers.
     """
-    def __init__(self, input_file, display, input_polling_interval, signal_file=None, debug=False, disable_progress_slowdown=False):
+    def __init__(self, input_file, display, input_polling_interval, signal_file=None, debug=False):
         self.current_progress = 0
         self.current_progress_base = 0
         self.current_progress_ceiling = 0
@@ -42,7 +42,6 @@ class FaiProgress():
         self.action = None
         self.signal = SignalProgress(signal_file)
         self.debug_mode = debug
-        self.disable_progress_slowdown = disable_progress_slowdown
         self.input_file = input_file
         self.input_polling_interval = input_polling_interval
         self.display = display
@@ -112,7 +111,7 @@ class FaiProgress():
             self.display.debug(message)
 
     def update_message(self, message):
-        if self.current_progress < self.current_progress_slowdown_barrier or self.disable_progress_slowdown:
+        if self.current_progress < self.current_progress_slowdown_barrier or self.debug_mode:
             self.current_progress += self.progress_step_length()
         else:
             # make sure that the progress stays in defined progress range
