@@ -138,12 +138,12 @@ class HangupParser(BasicLineParser):
 
 class LDAP2FaiErrorParser(BasicLineParser):
     def __init__(self, call_back):
-        message_template = "ldap2fai-error: {}"
-        regex = "^ldap2fai-error:(.*)$"
+        message_template = "ldap2fai-error: {message}"
+        regex = "^ldap2fai-error:(?P<message>.*)$"
         super(LDAP2FaiErrorParser, self).__init__(call_back, message_template, regex)
 
     def _on_match(self, **values):
         try:
-            self.call_back.handle_error(self.message_template.format(b64decode(self.match.group(1))))
+            self.call_back.handle_error(self.message_template.format(b64decode(self.match.group("message"))))
         except binascii.Error:
             self.call_back.handle_error(_("ldap2fai-error occurred, however the cause could not be decoded!"))
