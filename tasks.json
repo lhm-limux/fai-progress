@@ -1,0 +1,135 @@
+[
+  {
+    "name": "confdir",
+    "description": "Retrieving initial client configuration",
+    "target_progress": 0.25,
+    "progress_softupdate": 0.25,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "setup",
+    "description": "Gathering client information",
+    "target_progress": 0.5,
+    "progress_softupdate": 0.5,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "defclass",
+    "description": "Defining installation classes",
+    "target_progress": 0.75,
+    "progress_softupdate": 0.75,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "defvar",
+    "description": "Defining installation variables",
+    "target_progress": 1,
+    "progress_softupdate": 1,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "action",
+    "description": "Evaluating action",
+    "target_progress": 1.25,
+    "progress_softupdate": 1.25,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "install",
+    "description": "Starting installation",
+    "target_progress": 1.5,
+    "progress_softupdate": 1.5,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "partition",
+    "description": "Inspecting harddisks",
+    "target_progress": 4.5,
+    "progress_softupdate": 4.5,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "mountdisks",
+    "description": "Mounting filesystems",
+    "target_progress": 5,
+    "progress_softupdate": 5,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "extrbase",
+    "description": "Bootstrapping base system",
+    "target_progress": 15,
+    "progress_softupdate": 5,
+    "expected_recurring_steps": 250
+  },
+  {
+    "name": "debconf",
+    "description": "Preparing debconf database",
+    "target_progress": 16,
+    "progress_softupdate": 6,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "repository",
+    "description": "Fetching repository information",
+    "target_progress": 20,
+    "progress_softupdate": 10,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "updatebase",
+    "description": "Updating base system",
+    "target_progress": 25,
+    "progress_softupdate": 65,
+    "expected_recurring_steps": 1000
+  },
+  {
+    "name": "instsoft",
+    "description": "Software installation",
+    "target_progress": 75,
+    "progress_softupdate": 75,
+    "expected_recurring_steps": 2500
+  },
+  {
+    "name": "configure",
+    "description": "Adapting system and package configuration",
+    "target_progress": 90,
+    "progress_softupdate": 90,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "tests",
+    "description": "Running tests",
+    "target_progress": 95,
+    "progress_softupdate": 95,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "finish",
+    "description": "Finishing installation",
+    "target_progress": 98,
+    "progress_softupdate": 98,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "audit",
+    "description": "Audit",
+    "target_progress": 99.5,
+    "progress_softupdate": 99.5,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "savelog",
+    "description": "Installation finished",
+    "target_progress": 100,
+    "progress_softupdate": 100,
+    "expected_recurring_steps": 0
+  },
+  {
+    "name": "faiend",
+    "description": "Installation finished",
+    "target_progress": 100,
+    "progress_softupdate": 100,
+    "expected_recurring_steps": 0
+  }
+]
