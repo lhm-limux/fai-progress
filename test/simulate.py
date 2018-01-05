@@ -52,20 +52,26 @@ class FaiRunMockup(Thread):
 if __name__ == '__main__':
     arg_parser = ArgumentParser(prog="simulate", description="Simulate Fai-Run")
     arg_parser.add_argument("input", help="data source FAI log")
+    arg_parser.add_argument("-o", "--output", help="just simulate fai run and use this file as output")
     args = arg_parser.parse_args()
 
-    temporary_handle,temporary_file = mkstemp(prefix="simulate")
+    if args.output:
+        fai_run = FaiRunMockup(args.input, args.output)
+        fai_run.start()
+        fai_run.join()
+    else:
+        temporary_handle,temporary_file = mkstemp(prefix="simulate")
 
-    fai_run = FaiRunMockup(args.input, temporary_file)
-    fai_run.start()
+        fai_run = FaiRunMockup(args.input, temporary_file)
+        fai_run.start()
 
-    display = LinePrintInterface()
+        display = LinePrintInterface()
 
-    with open(temporary_file, "r") as handle:
-        progress = FaiProgress(handle, display, 0.2, debug=True)
-        load_data(progress)
-        progress.run()
+        with open(temporary_file, "r") as handle:
+            progress = FaiProgress(handle, display, 0.2, debug=True)
+            load_data(progress)
+            progress.run()
 
-    fai_run.join()
-    temporary_handle.close()
-    remove(temporary_file)
+        fai_run.join()
+        temporary_handle.close()
+        remove(temporary_file)

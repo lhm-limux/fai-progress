@@ -26,7 +26,6 @@ from traceback import print_exc
 
 from fai_progress.display.simple import LinePrintInterface
 from fai_progress.display.snack import SnackInterface
-from fai_progress.parser import LineParser
 from fai_progress.progress import FaiProgress, FaiTask
 
 
@@ -34,7 +33,7 @@ def base_path():
     if "FAI_PROGRESS_RESOURCE_PATH" in globals():
         global FAI_PROGRESS_RESOURCE_PATH
         return FAI_PROGRESS_RESOURCE_PATH
-    return ".."
+    return "/usr/share/fai-progress"
 
 
 def resource_path(relative_path):
@@ -133,4 +132,6 @@ def command_line_interface():
 
 
 if __name__ == '__main__':
+    global FAI_PROGRESS_RESOURCE_PATH
+    FAI_PROGRESS_RESOURCE_PATH = ".."
     command_line_interface()
