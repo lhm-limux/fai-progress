@@ -1,17 +1,33 @@
 [
   {
-    "type": "BasicLineParser",
-    "task": "defvar",
+    "tasks": [
+      "defvar"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Starting installation",
       "pattern": "^FAI_ACTION: install$",
       "recurring": false,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "BasicLineParser",
-    "task": "partition",
+    "tasks": [
+      "action"
+    ],
+    "action": "update_action",
+    "parameters": {
+      "message_template": "Performing {action}",
+      "pattern": "^FAI_ACTION: (?P<action>[^ ]+)",
+      "recurring": false,
+      "expected_hits": 1
+    }
+  },
+  {
+    "tasks": [
+      "partition"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Partitioning harddisk",
       "pattern": "^Executing: parted",
@@ -20,8 +36,10 @@
     }
   },
   {
-    "type": "BasicLineParser",
-    "task": "partition",
+    "tasks": [
+      "partition"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Creating swap",
       "pattern": "^Executing: mkswap",
@@ -30,8 +48,10 @@
     }
   },
   {
-    "type": "BasicLineParser",
-    "task": "partition",
+    "tasks": [
+      "partition"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Creating filesystems",
       "pattern": "^Executing: mkfs",
@@ -40,128 +60,158 @@
     }
   },
   {
-    "type": "BootstrapPackageVersionParser",
-    "task": "extrbase",
+    "tasks": [
+      "extrbase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Retrieving {package} {version}",
       "pattern": "^I: Retrieving (?P<package>.+) (?P<version>.+)$",
       "recurring": true,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "BootstrapPackageVersionParser",
-    "task": "extrbase",
+    "tasks": [
+      "extrbase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Validating {package} {version}",
       "pattern": "^I: Validating (?P<package>.+) (?P<version>.+)$",
       "recurring": true,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "BasicLineParser",
-    "task": "extrbase",
+    "tasks": [
+      "extrbase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Unpacking the base system",
       "pattern": "^I: Unpacking the base system...",
       "recurring": false,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "BootstrapPackageParser",
-    "task": "extrbase",
+    "tasks": [
+      "extrbase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Extracting {package}",
       "pattern": "^I: Extracting (?P<package>.+)...$",
       "recurring": true,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "BootstrapPackageParser",
-    "task": "extrbase",
+    "tasks": [
+      "extrbase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Unpacking {package}",
       "pattern": "^I: Unpacking (?P<package>.+)...$",
       "recurring": true,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "BootstrapPackageParser",
-    "task": "extrbase",
+    "tasks": [
+      "extrbase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Configuring {package}",
       "pattern": "^I: Configuring (?P<package>.+)...$",
       "recurring": true,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "BasicLineParser",
-    "task": "extrbase",
+    "tasks": [
+      "extrbase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Resolving dependencies",
       "pattern": "^I: Resolving dependencies$",
       "recurring": false,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "BasicLineParser",
-    "task": "extrbase",
+    "tasks": [
+      "extrbase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Checking repository content",
       "pattern": "^I: Checking component",
       "recurring": false,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "InstallSummaryParser",
-    "task": "instsoft",
+    "tasks": [
+      "instsoft",
+      "updatebase"
+    ],
+    "action": "update_package_count",
     "parameters": {
       "message_template": "Gathering information for package lists",
       "pattern": "(?P<upgrades>[0-9]+)(?: packages)? upgraded, (?P<installs>[0-9]+) newly installed, (?P<removes>[0-9]+) to remove",
       "recurring": false,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "PackageReceiveParser",
-    "task": "instsoft",
+    "tasks": [
+      "instsoft",
+      "updatebase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Retrieving {package} {version} ...",
-      "pattern": "^Get:\\s?(?P<number>[0-9]+) [^ ]+ [^ ]+ [^ ]+ (?P<package>[^ ]+) [^ ]+ (?P<version>[^ ]+) [^ ]+",
+      "pattern": "^Get:\\s?(?P<number>[0-9]+) [^ ]+ [^ ]+ (?:[^ ]+ )??(?P<package>[^ ]+) [^ ]+ (?P<version>[^ ]+) \\[[^\\]]+\\]",
       "recurring": true,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "PackageInstallParser",
-    "task": "instsoft",
+    "tasks": [
+      "instsoft",
+      "updatebase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Unpacking {package} ...",
       "pattern": "^Unpacking (?P<package>[^ ]+) .* ...",
       "recurring": true,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "PackageInstallParser",
-    "task": "instsoft",
+    "tasks": [
+      "instsoft",
+      "updatebase"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Setting up {package} ...",
       "pattern": "^Setting up (?P<package>[^ ]+) .* ...",
       "recurring": true,
-      "expected_hits": 0
+      "expected_hits": 1
     }
   },
   {
-    "type": "ShellParser",
-    "task": "configure",
+    "tasks": [
+      "configure"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Executing script {script} of class {class}",
       "pattern": "^Executing +shell: (?P<class>[^/]+)/(?P<script>[^/]+)",
@@ -170,8 +220,10 @@
     }
   },
   {
-    "type": "ShellParser",
-    "task": "tests",
+    "tasks": [
+      "tests"
+    ],
+    "action": "update_progress",
     "parameters": {
       "message_template": "Running test {script}",
       "pattern": "^Executing +shell: (?P<class>[^/]+)/(?P<script>[^/]+)",

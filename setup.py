@@ -16,13 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-from setuptools import setup
+from distutils.core import setup
 
 setup(
     name="fai-progress",
     version="0.1",
     description="Display progress of a FAI run",
     license="GPL2+",
-    packages=["fai_progress"],
+    packages=["fai_progress", "fai_progress.display"],
     scripts=["bin/fai-progress"],
+    data_files=[('share/fai-progress', ["tasks.json", "parser.json"])],
 )

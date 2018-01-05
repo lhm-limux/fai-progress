@@ -22,50 +22,103 @@ from queue import Queue
 from threading import Thread
 from time import sleep
 
-from fai_progress.parser import BasicLineParser, FaiTaskParser, ShellParser, BootstrapPackageVersionParser, \
-    BootstrapPackageParser, InstallSummaryParser, PackageReceiveParser, PackageInstallParser, HangupParser, \
-    LDAP2FaiErrorParser
+from fai_progress.parser import LDAP2FaiErrorParser, HangupParser, LineParser
 
 
 class FaiTask():
-    def __init__(self, description, target_progress, progress_softupdate=None, expected_recurring_steps=0):
+    def __init__(self, name, description, target_progress,
+                 progress_softupdate=None, expected_recurring_steps=0):
         """
-        A FAI run is composed of sequential phases called tasks. Some parsers only are active in the
-        context of a certain task.
+        A FAI run is composed of sequential phases called tasks. Some parsers
+        only are active in the context of a certain task.
         :param description: user readable description of the task
-        :param target_progress: the progress of installation in percent when this task is *finished*
-        :param progress_softupdate: analogous to progress for softupdate;
-                                    leave empty if the same value applies for both
+        :param target_progress: the progress of installation in percent when
+          this task is *finished*
+        :param progress_softupdate: analogous to progress for softupdate. If
+          None is give the value target_progress will be used.
+        :param expected_recurring_steps:int Estimate the number of recurring
+         steps in this task, e.g. expected number of packages to be installed in
+         an install task. This value is the basis for the progress calculation
+         if there is no possibility to parser the number steps i.e. installed
+         packages e.g. in the deboostrap phase.
         """
+        self.name = name
         self.description = description
+
+        self.parsers = []
+
+        self.subscribers = []
+
         self.target_progress = target_progress
         self.progress_softupdate = progress_softupdate or target_progress
-        self.parsers = []
-        self._recurring_step_count = 0
+
+        self.steps = 0
+        self.expected_steps = expected_recurring_steps
         self._expected_recurring_steps = expected_recurring_steps
-        self._expected_non_recurring_steps = 1
-        self.expected_steps = 1
+        self._expected_non_recurring_steps = 0
+        self._recurring_factor = 0
+
+    def get_task_parser(self, call_back):
+        """
+        Generate a parser object for recognising this particular task in the
+        fai.log.
+        :param call_back: function which gets called on a match
+        :return: parser object
+        """
+        return LineParser(
+            call_back,
+            self.description,
+            "^((Skip|Call)ing task_|(Calling|Source) hook: )(?P<name>{})"
+                .format(self.name),
+            recurring=False
+        )
+
+    def subscribe(self, subscriber):
+        self.subscribers.append(subscriber)
+
+    def install_parser(self, action, **parameters):
+        parser = LineParser(self.__getattribute__(action), **parameters)
+        if parser.recurring:
+            self._expected_recurring_steps += parser.expected_hits
+            self._recurring_factor += 1
+        else:
+            self._expected_non_recurring_steps += parser.expected_hits
+        self._update_expected_steps()
+        self.parsers.append(parser)
 
     def _update_expected_steps(self):
-        expected_recurring_steps = self._recurring_step_count * self._expected_recurring_steps
-        self.expected_steps = expected_recurring_steps + self._expected_non_recurring_steps
-
-    def add_parser(self, parser, recurring_step_parser=False, expected_hits=0):
-        self.parsers.append(parser)
-        if recurring_step_parser:
-            self._recurring_step_count += 1
-        else:
-            self._expected_non_recurring_steps += expected_hits
-        self._update_expected_steps()
-
-    def update_recurrent_steps(self, count):
-        self._expected_recurring_steps = count
-        self._update_expected_steps()
+        self.expected_steps = self._expected_non_recurring_steps + \
+            self._expected_recurring_steps * self._recurring_factor
 
     def get_target_progress(self, action=None):
         if action and action == "softupdate":
             return self.progress_softupdate
         return self.target_progress
+
+    def get_progress(self):
+        if self.expected_steps == 0:
+            # avoid division by zero
+            return 1
+        # cut off any progress over 1
+        return min(self.steps / self.expected_steps, 1)
+
+    def update_progress(self, message, **values):
+        self.steps += 1
+        for subscriber in self.subscribers:
+            subscriber.update_progress(message)
+
+    def update_action(self, message, action):
+        self.steps += 1
+        for subscriber in self.subscribers:
+            subscriber.update_action(action)
+            subscriber.update_progress(message)
+
+    def update_package_count(self, message, upgrades, installs, removes):
+        self._expected_recurring_steps = int(upgrades)
+        self._expected_recurring_steps += int(installs)
+        self._expected_recurring_steps += int(removes)
+        for subscriber in self.subscribers:
+            subscriber.update_progress(message)
 
 
 class FaiProgress():
@@ -75,11 +128,13 @@ class FaiProgress():
     This file is read on the fly and processed by some parsers.
     """
 
-    def __init__(self, input_file, display, input_polling_interval, signal_file=None, debug=False):
-        self.current_progress = 0
-        self.current_progress_base = 0
-        self.current_progress_ceiling = 0
-        self.current_task = FaiTask(_("Initializing FAI"), 1, 0)
+    def __init__(self, input_file, display, input_polling_interval,
+                 signal_file=None, debug=False):
+        self.progress_base = 0
+        self.progress = 0
+        self.task = FaiTask(_("Initializing FAI"), 1, 0)
+        self.task_range = 0
+        self.registered_tasks = {}
         self.action = None
         self.signal = SignalProgress(signal_file)
         self.debug_mode = debug
@@ -87,99 +142,49 @@ class FaiProgress():
         self.input_polling_interval = input_polling_interval
         self.display = display
         self.active = True
-        self.update_message(self.current_task.description)
-        self.global_parsers = [LDAP2FaiErrorParser(self), HangupParser(self)]
-        self.tasks = {}
+        self.global_parsers = [
+            LDAP2FaiErrorParser(self.handle_error),
+            HangupParser(self.deactivate),
+        ]
 
-        # define tasks (ignored tasks: chboot, faiend)
-        self.add_task("confdir", _("Retrieving initial client configuration"), 0.25)
-        self.add_task("setup", _("Gathering client information"), 0.5)
-        self.add_task("defclass", _("Defining installation classes"), 0.75)
-        self.add_task("defvar", _("Defining installation variables"), 1)
-        self.add_task("action", _("Evaluating action"), 1.25)
-        self.add_task("install", _("Starting installation"), 1.5)
-        self.add_task("partition", _("Inspecting harddisks"), 4.5)
-        self.add_task("mountdisks", _("Mounting filesystems"), 5)
-        self.add_task("extrbase", _("Bootstrapping base system"), 15, 5, recurring=250)
-        self.add_task("debconf", _("Preparing debconf database"), 16, 6)
-        self.add_task("repository", _("Fetching repository information"), 20, 10)
-        self.add_task("updatebase", _("Updating base system"), 25, 65, recurring=1000)
-        self.add_task("instsoft", _("Software installation"), 75, recurring=2500)
-        self.add_task("configure", _("Adapting system and package configuration"), 90)
-        self.add_task("tests", _("Running tests"), 95)
-        self.add_task("finish", _("Finishing installation"), 98)
-        self.add_task("audit", _("Audit"), 99.5)
-        self.add_task("savelog", _("Installation finished"), 100)
-
-        # add additional parsers
-        self.add_parser("defvar", BasicLineParser(self, _("Starting installation"), "^FAI_ACTION: install$"))
-        self.add_parser("partition", BasicLineParser(self, _("Partitioning harddisk"), "^Executing: parted"), expected_hits=10)
-        self.add_parser("partition", BasicLineParser(self, _("Creating swap"), "^Executing: mkswap"), expected_hits=2)
-        self.add_parser("partition", BasicLineParser(self, _("Creating filesystems"), "^Executing: mkfs"), expected_hits=10)
-        self.add_parser("extrbase", BootstrapPackageVersionParser(self, "Retrieving"), recurring=True)
-        self.add_parser("extrbase", BootstrapPackageVersionParser(self, "Validating"), recurring=True)
-        self.add_parser("extrbase", BasicLineParser(self, _("Unpacking the base system"), "^I: Unpacking the base system..."))
-        self.add_parser("extrbase", BootstrapPackageParser(self, "Extracting"), recurring=True)
-        self.add_parser("extrbase", BootstrapPackageParser(self, "Unpacking"), recurring=True)
-        self.add_parser("extrbase", BootstrapPackageParser(self, "Configuring"), recurring=True)
-        self.add_parser("extrbase", BasicLineParser(self, _("Resolving dependencies"), "^I: Resolving dependencies$"))
-        self.add_parser("extrbase", BasicLineParser(self, _("Checking repository content"), "^I: Checking component"))
-        self.add_parser("instsoft", InstallSummaryParser(self))
-        self.add_parser("instsoft", PackageReceiveParser(self), recurring=True)
-        self.add_parser("instsoft", PackageInstallParser(self, "Unpacking"), recurring=True)
-        self.add_parser("instsoft", PackageInstallParser(self, "Setting up"), recurring=True)
-        self.add_parser("configure", ShellParser(self, _("Executing script {script} of class {class}")), expected_hits=20)
-        self.add_parser("tests", ShellParser(self, _("Running test {script}")), expected_hits=5)
-
-    def add_task(self, task, description, progress, progress_softupdate=None, recurring=0):
-        """
-        :param task:str each task is identified by this identifier
-        :param description:str user readable description of the task
-        :param progress:float the progress of installation in percent when this task is *finished*
-        :param progress_softupdate:float analogous to progress for softupdate;
-                                    leave empty if the same as for installation
-        """
-        self.tasks[task] = FaiTask(description, progress, progress_softupdate, recurring)
-        self.global_parsers.append(FaiTaskParser(self, task, description))
-
-    def add_parser(self, task, parser, recurring=False, expected_hits=0):
-        if recurring:
-            assert expected_hits == 0
-        self.tasks[task].add_parser(parser, recurring, expected_hits)
+    def add_task(self, task):
+        self.registered_tasks[task.name] = task
+        task.subscribe(self)
+        self.global_parsers.append(task.get_task_parser(self.next_task))
 
     def debug_message(self, message):
         if self.debug_mode:
             self.display.debug(message)
 
-    def update_message(self, message):
-        self.current_progress += self.progress_step_length()
-        self.display.update(self.current_progress, message)
-        self.signal.signal_progress(self.current_progress)
+    def update_progress(self, message):
+        self.progress = self.progress_base + \
+                        self.task_range * self.task.get_progress()
+        self.display.update(self.progress, message)
+        self.signal.signal_progress(self.progress)
 
-    def next_task(self, name):
-        if self.current_task is self.tasks[name]:
+    def next_task(self, message, name):
+        if self.task.name == name:
             # do nothing if this is already the current task
             return
-        self.current_progress = self.current_progress_ceiling
-        self.current_task = self.tasks[name]
-        self.current_progress_base = self.current_progress
-        self.current_progress_ceiling = self.current_task.get_target_progress(self.action)
-        self.display.update_task(self.current_progress, name, self.current_task.description)
-
-    def progress_step_length(self):
-        range = self.current_progress_ceiling - self.current_progress_base
-        return range / self.current_task.expected_steps
-
-    def update_package_count(self, upgrades, installs, removes):
-        self.current_task.update_recurrent_steps(int(upgrades) + int(installs) - int(removes))
+        # current task is finished, set progress to its target
+        self.progress = self.task.get_target_progress(self.action)
+        self.progress_base = self.progress
+        # prepare for new task
+        self.task = self.registered_tasks[name]
+        self.task_range = self.task.get_target_progress(
+            self.action) - self.progress_base
+        self.display.update_task(self.progress, name, self.task.description)
 
     def update_action(self, action):
         self.action = action
 
-    def handle_error(self, message):
+    def handle_error(self, message, **kwargs):
         self.display.debug(message)
         self.active = False
         self.display.cleanup()
+
+    def deactivate(self, **kwargs):
+        self.active = False
 
     def run(self):
         self.signal.start()
@@ -192,7 +197,7 @@ class FaiProgress():
 
     def process_input(self, line):
         self.debug_message(line)
-        for parser in self.global_parsers + self.current_task.parsers:
+        for parser in self.global_parsers + self.task.parsers:
             parser.process(line)
             if parser.match:
                 return
@@ -236,5 +241,3 @@ class SignalProgress(Thread):
                     handle.flush()
                 else:
                     break
-
-

@@ -17,8 +17,11 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 
+
 from fai_progress.main import command_line_interface
 
 if __name__ == '__main__':
+    global FAI_PROGRESS_RESOURCE_PATH
+    FAI_PROGRESS_RESOURCE_PATH = "/usr/share/fai-progress"
     command_line_interface()
 

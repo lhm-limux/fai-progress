@@ -24,6 +24,7 @@ from time import sleep
 from os import remove
 
 from fai_progress.display.simple import LinePrintInterface
+from fai_progress.main import load_data
 from fai_progress.progress import FaiProgress
 
 
@@ -46,6 +47,8 @@ class FaiRunMockup(Thread):
                 handle.flush()
                 sleep(self.interval)
 
+
+
 if __name__ == '__main__':
     arg_parser = ArgumentParser(prog="simulate", description="Simulate Fai-Run")
     arg_parser.add_argument("input", help="data source FAI log")
@@ -59,7 +62,8 @@ if __name__ == '__main__':
     display = LinePrintInterface()
 
     with open(temporary_file, "r") as handle:
-        progress = FaiProgress(handle, display, 0.2)
+        progress = FaiProgress(handle, display, 0.2, debug=True)
+        load_data(progress)
         progress.run()
 
     fai_run.join()
