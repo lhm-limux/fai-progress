@@ -233,7 +233,7 @@ class SignalProgress(Thread):
     def run(self):
         if self.path is None or not os.path.exists(self.path):
             return
-        with open(self.path, "w") as handle:
+        with open(self.path, "w", encoding="utf-8") as handle:
             while True:
                 message = self.message_queue.get()
                 if message is not None:

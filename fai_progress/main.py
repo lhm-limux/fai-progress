@@ -46,14 +46,14 @@ def load_parser_data(path):
     :param path:
     :return:
     """
-    with open(path) as handle:
+    with open(path, encoding="utf-8") as handle:
         parser_data_list = json.load(handle)
 
     return parser_data_list
 
 
 def load_task_data(path):
-    with open(path) as handle:
+    with open(path, encoding="utf-8") as handle:
         task_data_list = json.load(handle)
 
     for task_data_set in task_data_list:
@@ -111,7 +111,7 @@ def command_line_interface():
 
     exit_code = 0
     try:
-        with open(args.input, 'r') as handle:
+        with open(args.input, 'r', encoding="utf-8") as handle:
             fai_progress = FaiProgress(handle, display,
                                        args.input_polling_interval,
                                        signal_file=args.signal_file,
